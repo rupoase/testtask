@@ -33,33 +33,38 @@ namespace DbfTests
             // put all DataValues into ONE ordered (by timestamp) list of OutputRow (each timestamp shall exist only once)
             // the OutputRow has 2 lists: 1 static one for the headers (directory path of file) and one for the values (values of all files (same timestamp) must be merged into one OutputRow)
 
-            // grouping by timestamp
-            var grouping = rawValues.GroupBy(x => x.Timestamp);
-
-            // ordering by timestamp, assuming ascending
-            var ordered = grouping.OrderBy(x => x.Key);
-
-            var selection = ordered
+            var outputs = rawValues.GroupBy(x => x.Timestamp)
+                .OrderBy(x => x.Key)
                 .Select(output => new OutputRow
                 {
                     Timestamp = output.Key,
-                    Values = output.Select(o => (double?)o.Value).ToList()
+                    Values = output.Select(x => (double?)x.Value).ToList()
                 })
                 .ToList();
 
+            /* 
+             * filling any output value to match the number of files            
+            */
 
-            var outputs = selection;
+            foreach (var item in outputs)
+            {
+                var valueCount = item.Values.Count;
+                if (valueCount <= allFiles.Count)
+                {
+                    var repeated = Enumerable.Repeat(default(double?), allFiles.Count - valueCount);
+                    item.Values.AddRange(repeated);
+                }
+            }
+
             OutputRow.Headers = allFiles;
             // if there is time left, improve example where you think it isn't good enough
 
             // the following asserts should pass
-            Assert.AreEqual(25790, outputs.Count);
-            Assert.AreEqual(27, OutputRow.Headers.Count);
-
-            // Are the files correct ?
             Assert.AreEqual(27, outputs[0].Values.Count);
             Assert.AreEqual(27, outputs[11110].Values.Count);
             Assert.AreEqual(27, outputs[25789].Values.Count);
+            Assert.AreEqual(25790, outputs.Count);
+            Assert.AreEqual(27, OutputRow.Headers.Count);
             Assert.AreEqual(633036852000000000, outputs.Min(o => o.Timestamp).Ticks);
             Assert.AreEqual(634756887000000000, outputs.Max(o => o.Timestamp).Ticks);
             Assert.AreEqual(633036852000000000, outputs[0].Timestamp.Ticks);
